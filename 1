@@ -1,0 +1,45 @@
+
+
+@Configuration
+@EnableAdfs
+@EnableGlobalMethodSecurity(
+        prePostEnabled = true
+)
+// TODO: remove after ADFS token generation is fixed in automation
+@Profile("!automation")
+public class AdfsSecurityConfiguration {
+    private static final String[] AUTHENTICATED_PATHS = new String[]{
+            "/identity-resolution/**", "test/v1/**"
+    };
+
+    private static final String[] PERMIT_PATHS = new String[]{
+            "/v2/api-docs",
+            "/v3/api-docs"
+           
+    };
+
+    private final AdfsConfigurer<HttpSecurity> adfsConfigurer;
+
+    public AdfsSecurityConfiguration(AdfsConfigurer<HttpSecurity> adfsConfigurer) {
+        this.adfsConfigurer = adfsConfigurer;
+    }
+
+    @Bean
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.apply(adfsConfigurer);
+        http.headers().contentSecurityPolicy("script-src 'self'");
+        http.authorizeRequests()
+                .requestMatchers(PERMIT_PATHS).permitAll()
+                .requestMatchers(AUTHENTICATED_PATHS).authenticated();
+        http.csrf().disable();
+        return http.build();
+    }
+
+    @Bean
+    WebSecurityCustomizer webSecurityCustomizer() throws Exception {
+        return (web) -> {
+            web.ignoring()
+                    .requestMatchers(PERMIT_PATHS);
+        };
+    }
+}
